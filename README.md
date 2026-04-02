@@ -14,7 +14,7 @@ The Chat server features include:
 
 To run the server compile it using the command:
 
-gpp server.cpp -o server
+g++ server.cpp userInfo.cpp encryption.cpp -o server
 
 
 
