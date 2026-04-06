@@ -11,16 +11,39 @@
 #include <sys/epoll.h>
 #include <unordered_map>
 #include "userInfo.h"
+#include <cstdlib>
 
 using namespace std;
 
-// 🔥 Broadcast helper
+string banner(const string& s) {
+    const int width = 79; 
+
+    int padding = (width - s.length()) / 2;
+
+    if (padding < 0) padding = 0;
+
+    string spaces(padding, ' ');
+
+    string result =
+        "===============================================================================\n" +
+        spaces + s + "\n" +
+        "===============================================================================\n";
+
+    return result;
+}
+
+// Broadcast helper
 void broadcast(const vector<int>& clients, const string& msg, int exclude_fd = -1) {
     for (int client : clients) {
         if (client != exclude_fd) {
             write(client, msg.c_str(), msg.size());
         }
     }
+}
+
+enum class allowedWords {admin};
+void permissions(const int a, allowedWords){
+
 }
 
 int main() {
@@ -51,11 +74,14 @@ int main() {
     epoll_ctl(epfd, EPOLL_CTL_ADD, server_fd, &ev);
 
     vector<int> clients;
+    unordered_map<int, string> selected_chat;
+    vector<int> broadcast_chat;
     epoll_event events[10];
 
     unordered_map<int, string> usernames;
     unordered_map<string, int> name_to_fd;
     unordered_map<string, vector<int>> chats;
+    unordered_map<int, vector<string>> allowedChats;
     userInfo user_pass;
 
     cout << "Server running on port 8080...\n";
@@ -68,8 +94,21 @@ int main() {
 
             // 🔹 NEW CONNECTION
             if (fd == server_fd) {
+
                 int client_fd = accept(server_fd, nullptr, nullptr);
                 if (client_fd < 0) continue;
+
+                auto& members = chats["main"];
+
+                if (find(members.begin(), members.end(), client_fd) == members.end()) {
+                    members.push_back(client_fd);
+                }
+
+                string clear = "\033[2J\033[H"; // clear screen + move cursor home
+
+                allowedChats[client_fd].push_back("main");
+
+                write(client_fd, clear.c_str(), clear.size());
 
                 fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
@@ -79,8 +118,8 @@ int main() {
                 epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &client_ev);
 
                 clients.push_back(client_fd);
-
-                string msg = "Use /help for commands\nEnter username and password:\n";
+                
+                string msg = banner("Login") + "Enter username and password:\n";
                 write(client_fd, msg.c_str(), msg.size());
 
                 cout << "Client connected: " << client_fd << endl;
@@ -95,7 +134,11 @@ int main() {
                     // DISCONNECT
                     string leave_msg = usernames[fd] + " left the chat\n";
 
-                    broadcast(clients, leave_msg, fd);
+                    string chat = selected_chat[fd];
+
+                    if (chats.find(chat) != chats.end()) {
+                        broadcast(chats[chat], leave_msg, fd);
+                    }
 
                     string old_name = usernames[fd];
                     usernames.erase(fd);
@@ -161,9 +204,14 @@ int main() {
 
                     usernames[fd] = username;
                     name_to_fd[username] = fd;
+                    selected_chat[fd] = "main";
+
+                    string clear = "\033[2J\033[H"; // clear screen + move cursor home
+                    clear += banner("main") + "Use /help for a list of commands\n";
+                    write(fd, clear.c_str(), clear.size());
 
                     string join_msg = username + " joined the chat\n";
-                    broadcast(clients, join_msg);
+                    broadcast(chats["main"], join_msg);
 
                     continue;
                 }
@@ -173,8 +221,13 @@ int main() {
 
                     if (msg[0] == "/help") {
                         string help =
-                            "/quit\n/name <name>\n/list\n/msg <user> <msg>\n"
-                            "/chat create <name>\n/chat add <chat> <user>\n/chat <chat> <msg>\n";
+                            "/quit: leave the server\n"
+                            "/name <name>: changes username\n"
+                            "/list: lists user in the server\n"
+                            "/msg <user> <msg>: sends a private message to user\n"
+                            "/chat create <name>: creates a private chat room\n"
+                            "/chat add <chat> <user>: allows user to access the chat room\n"
+                            "/chat <chat>: switches chat room\n";
                         write(fd, help.c_str(), help.size());
                     }
 
@@ -241,35 +294,72 @@ int main() {
                     else if (msg[0] == "/chat") {
 
                         if (msg.size() >= 3 && msg[1] == "create") {
-                            chats[msg[2]].push_back(fd);
+                            auto& members = chats[msg[2]];
+                            if (find(members.begin(), members.end(), fd) == members.end()) {
+                                allowedChats[fd].push_back(msg[2]);
+                            }
                             string m = "Chat created\n";
                             write(fd, m.c_str(), m.size());
                         }
 
-                        else if (msg.size() >= 4 && msg[1] == "add") {
+                        else if (msg.size() >= 4 && msg[1] == "add" && msg[2] != "main") {
                             string chat = msg[2];
                             string user = msg[3];
 
-                            if (!name_to_fd.count(user)) continue;
+                            if (!name_to_fd.count(user)) {
+                                string err = "User not found\n";
+                                write(fd, err.c_str(), err.size());
+                                continue;
+                            }
 
-                            chats[chat].push_back(name_to_fd[user]);
+                            auto it = allowedChats.find(fd);
+
+                            if (it == allowedChats.end() ||
+                                find(it->second.begin(), it->second.end(), chat) == it->second.end()) {
+                                string err = "You do not have permission to use this command\n";
+                                write(fd, err.c_str(), err.size());
+                                continue;
+                            }
+
+                            auto& chats = allowedChats[name_to_fd[user]];
+                            if (find(chats.begin(), chats.end(), chat) == chats.end()) {
+                                chats.push_back(chat);
+                            }
                         }
 
-                        else if (msg.size() >= 3) {
+                        else if (msg.size() == 2) {
                             string chat = msg[1];
 
-                            if (!chats.count(chat)) continue;
+                            if (chats.find(chat) == chats.end()) {
+                                string err = "Chat not found\n";
+                                write(fd, err.c_str(), err.size());
+                                continue;
+                            }
 
-                            string text;
-                            for (int i = 2; i < msg.size(); i++)
-                                text += msg[i] + " ";
+                            // Check permissions
+                            auto it = allowedChats.find(fd);
+                            if (it == allowedChats.end() || find(it->second.begin(), it->second.end(), chat) == it->second.end()) {
+                                string err = "You do not have permission to view this chat\n";
+                                write(fd, err.c_str(), err.size());
+                                continue;
+                            }
 
-                            string out = "(Chat " + chat + ") " + usernames[fd] + ": " + text + "\n";
+                            // Remove from old chat
+                            auto& old_members = chats[selected_chat[fd]];
+                            old_members.erase(remove(old_members.begin(), old_members.end(), fd), old_members.end());
 
-                            for (int member : chats[chat])
-                                if (member != fd)
-                                    write(member, out.c_str(), out.size());
+                            // Join new chat
+                            selected_chat[fd] = chat;
+                            auto& new_members = chats[selected_chat[fd]];
+                            if (find(new_members.begin(), new_members.end(), fd) == new_members.end()) {
+                                new_members.push_back(fd);
+                            }
+
+                            string clear = "\033[2J\033[H"; // clear screen + move cursor home
+                            clear += banner(selected_chat[fd]);
+                            write(fd, clear.c_str(), clear.size());
                         }
+                        continue;
                     }
 
                     else {
@@ -282,11 +372,16 @@ int main() {
 
                 // 🔹 NORMAL MESSAGE
                 string out = usernames[fd] + ": " + message + "\n";
-                broadcast(clients, out, fd);
+                if (chats.find(selected_chat[fd]) != chats.end()){
+                    broadcast(chats[selected_chat[fd]], out, fd);
+                } else {
+                    string err = "Chat no longer exists\n";
+                    write(fd, err.c_str(), err.size());
+                }
             }
+            
         }
     }
-
     close(server_fd);
     return 0;
 }
