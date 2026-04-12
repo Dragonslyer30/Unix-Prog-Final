@@ -10,6 +10,7 @@ The Chat server features include:
 * Permanent username storage.
 * Passwords and basic password encryption.
 * Chats can be switched between and you only see the messages from the chat you are currently in.
+* Chat messages are stored and /retrieve <chat name> can be used to get previous chat data.
 
 
 

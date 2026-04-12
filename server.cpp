@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include "userInfo.h"
 #include <cstdlib>
+#include "chatStorage.h"
 
 using namespace std;
 
@@ -83,6 +84,8 @@ int main() {
     unordered_map<string, vector<int>> chats;
     unordered_map<int, vector<string>> allowedChats;
     userInfo user_pass;
+
+    chatStorage chatText;
 
     cout << "Server running on port 8080...\n";
 
@@ -362,6 +365,34 @@ int main() {
                         continue;
                     }
 
+                    else if (msg[0] == "/retrieve") {
+
+                        if (msg.size() < 2) {
+                            string err = "Usage: /retrieve <chat_name>\n";
+                            write(fd, err.c_str(), err.size());
+                            continue;
+                        }
+
+                        string chat_name = msg[1];
+
+                        // Check if chat exists
+                        if (chats.find(chat_name) == chats.end()) {
+                            string err = "This chat does not exist\n";
+                            write(fd, err.c_str(), err.size());
+                            continue;
+                        }
+
+                        // Get chat history from file
+                        string history = chatText.getChat(chat_name);
+
+                        if (history.empty()) {
+                            string msg = "No chat history available\n";
+                            write(fd, msg.c_str(), msg.size());
+                        } else {
+                            write(fd, history.c_str(), history.size());
+                        }
+                    }
+
                     else {
                         string err = "Invalid command\n";
                         write(fd, err.c_str(), err.size());
@@ -373,6 +404,7 @@ int main() {
                 // 🔹 NORMAL MESSAGE
                 string out = usernames[fd] + ": " + message + "\n";
                 if (chats.find(selected_chat[fd]) != chats.end()){
+                    chatText.storeChat(selected_chat[fd], out);
                     broadcast(chats[selected_chat[fd]], out, fd);
                 } else {
                     string err = "Chat no longer exists\n";

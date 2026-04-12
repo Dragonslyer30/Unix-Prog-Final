@@ -1,2 +1,2 @@
 #!/bin/bash
-g++ server.cpp userInfo.cpp encryption.cpp -o server
+g++ server.cpp userInfo.cpp encryption.cpp chatStorage.cpp -o server
