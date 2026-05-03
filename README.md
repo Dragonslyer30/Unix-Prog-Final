@@ -10,22 +10,28 @@ The Chat server features include:
 * Permanent username storage.
 * Passwords and basic password encryption.
 * Chats can be switched between and you only see the messages from the chat you are currently in.
-* Chat messages are stored and /retrieve <chat name> can be used to get previous chat data.
+* Client code to make chat room easier to read as a user.
+* permanent chat storage
 
 
 
-To run the server download the "server" file and use the command:
+To run the server, download the files and give the run and compile command execute permissions using chmod.
 
-./server
-
-
-
-The compile file can be used to compile the code by executing it.
+Then use the commands "compile" and "run" to run the main server code.
 
 
 
-Possible features for the future:
+To connect to the server, open another terminal and this time navigate to the "client" folder.
 
-* Chat room and message storage.
-* Friends list.
+Then give the "compile" and "run" files execute permissions using chmod.
+
+Then you can run the client code using the commands "compile" and "run".
+
+
+
+You will be asked for a username and password. These are stored and if you enter a username that hasn't been entered before it will create a new user with that username and whatever password you put. This username and password is stored even if the server is restarted.
+
+
+
+Use the /help command for a list of possible commands.
 

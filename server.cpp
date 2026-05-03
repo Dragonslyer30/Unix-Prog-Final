@@ -107,11 +107,7 @@ int main() {
                     members.push_back(client_fd);
                 }
 
-                string clear = "\033[2J\033[H"; // clear screen + move cursor home
-
                 allowedChats[client_fd].push_back("main");
-
-                write(client_fd, clear.c_str(), clear.size());
 
                 fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
@@ -122,7 +118,7 @@ int main() {
 
                 clients.push_back(client_fd);
                 
-                string msg = banner("Login") + "Enter username and password:\n";
+                string msg = string("[BANNER]Login\n") + "Enter username and password:\n";
                 write(client_fd, msg.c_str(), msg.size());
 
                 cout << "Client connected: " << client_fd << endl;
@@ -135,7 +131,7 @@ int main() {
 
                 if (bytes <= 0) {
                     // DISCONNECT
-                    string leave_msg = usernames[fd] + " left the chat\n";
+                    string leave_msg = "[SYSTEM]" + usernames[fd] + " left the chat\n";
 
                     string chat = selected_chat[fd];
 
@@ -209,11 +205,11 @@ int main() {
                     name_to_fd[username] = fd;
                     selected_chat[fd] = "main";
 
-                    string clear = "\033[2J\033[H"; // clear screen + move cursor home
-                    clear += banner("main") + "Use /help for a list of commands\n";
-                    write(fd, clear.c_str(), clear.size());
 
-                    string join_msg = username + " joined the chat\n";
+                    temp = "[BANNER]Main\n";
+                    write(fd, temp.c_str(), temp.size());
+
+                    string join_msg = "[SYSTEM]" + username + " joined the chat\n";
                     broadcast(chats["main"], join_msg);
 
                     continue;
@@ -221,16 +217,16 @@ int main() {
 
                 // 🔹 COMMANDS
                 if (!message.empty() && message[0] == '/') {
-
+                    string temp = message + "\n";
+                    write(fd, temp.c_str(), temp.size());
                     if (msg[0] == "/help") {
                         string help =
-                            "/quit: leave the server\n"
-                            "/name <name>: changes username\n"
-                            "/list: lists user in the server\n"
-                            "/msg <user> <msg>: sends a private message to user\n"
-                            "/chat create <name>: creates a private chat room\n"
-                            "/chat add <chat> <user>: allows user to access the chat room\n"
-                            "/chat <chat>: switches chat room\n";
+                            "[SYSTEM]/quit: leave the server\n"
+                            "[SYSTEM]/list: lists user in the server\n"
+                            "[SYSTEM]/msg <user> <msg>: sends a private message to user\n"
+                            "[SYSTEM]/chat create <name>: creates a private chat room\n"
+                            "[SYSTEM]/chat add <chat> <user>: allows user to access the chat room\n"
+                            "[SYSTEM]/chat <chat>: switches chat room\n";
                         write(fd, help.c_str(), help.size());
                     }
 
@@ -239,7 +235,7 @@ int main() {
                                 auto& members = pair.second;
                                 members.erase(remove(members.begin(), members.end(), fd), members.end());
                             }
-                            string leave_msg = usernames[fd] + " left the chat\n";
+                            string leave_msg = "[SYSTEM]" + usernames[fd] + " left the chat\n";
                             for (int client : clients){
                                 if (client != fd){
                                     write(client, leave_msg.c_str(), leave_msg.size());
@@ -261,27 +257,11 @@ int main() {
                         write(fd, list.c_str(), list.size());
                     }
 
-                    else if (msg[0] == "/name" && msg.size() >= 2) {
-                        string new_name = msg[1];
-
-                        if (name_to_fd.count(new_name)) {
-                            string err = "Name taken\n";
-                            write(fd, err.c_str(), err.size());
-                            continue;
-                        }
-
-                        string old = usernames[fd];
-                        name_to_fd.erase(old);
-
-                        usernames[fd] = new_name;
-                        name_to_fd[new_name] = fd;
-                    }
-
                     else if (msg[0] == "/msg" && msg.size() >= 3) {
                         string target = msg[1];
 
                         if (!name_to_fd.count(target)) {
-                            string err = "User not found\n";
+                            string err = "[SYSTEM]User not found\n";
                             write(fd, err.c_str(), err.size());
                             continue;
                         }
@@ -310,7 +290,7 @@ int main() {
                             string user = msg[3];
 
                             if (!name_to_fd.count(user)) {
-                                string err = "User not found\n";
+                                string err = "[SYSTEM]User not found\n";
                                 write(fd, err.c_str(), err.size());
                                 continue;
                             }
@@ -319,7 +299,7 @@ int main() {
 
                             if (it == allowedChats.end() ||
                                 find(it->second.begin(), it->second.end(), chat) == it->second.end()) {
-                                string err = "You do not have permission to use this command\n";
+                                string err = "[SYSTEM]You do not have permission to use this command\n";
                                 write(fd, err.c_str(), err.size());
                                 continue;
                             }
@@ -334,7 +314,7 @@ int main() {
                             string chat = msg[1];
 
                             if (chats.find(chat) == chats.end()) {
-                                string err = "Chat not found\n";
+                                string err = "[SYSTEM]Chat not found\n";
                                 write(fd, err.c_str(), err.size());
                                 continue;
                             }
@@ -342,7 +322,7 @@ int main() {
                             // Check permissions
                             auto it = allowedChats.find(fd);
                             if (it == allowedChats.end() || find(it->second.begin(), it->second.end(), chat) == it->second.end()) {
-                                string err = "You do not have permission to view this chat\n";
+                                string err = "[SYSTEM]You do not have permission to view this chat\n";
                                 write(fd, err.c_str(), err.size());
                                 continue;
                             }
@@ -358,9 +338,8 @@ int main() {
                                 new_members.push_back(fd);
                             }
 
-                            string clear = "\033[2J\033[H"; // clear screen + move cursor home
-                            clear += banner(selected_chat[fd]);
-                            write(fd, clear.c_str(), clear.size());
+                            temp = "[BANNER]" + selected_chat[fd] + "\n";
+                            write(fd, temp.c_str(), temp.size());
                         }
                         continue;
                     }
@@ -368,7 +347,7 @@ int main() {
                     else if (msg[0] == "/retrieve") {
 
                         if (msg.size() < 2) {
-                            string err = "Usage: /retrieve <chat_name>\n";
+                            string err = "[SYSTEM]Usage: /retrieve <chat_name>\n";
                             write(fd, err.c_str(), err.size());
                             continue;
                         }
@@ -377,7 +356,7 @@ int main() {
 
                         // Check if chat exists
                         if (chats.find(chat_name) == chats.end()) {
-                            string err = "This chat does not exist\n";
+                            string err = "[SYSTEM]This chat does not exist\n";
                             write(fd, err.c_str(), err.size());
                             continue;
                         }
@@ -386,7 +365,7 @@ int main() {
                         string history = chatText.getChat(chat_name);
 
                         if (history.empty()) {
-                            string msg = "No chat history available\n";
+                            string msg = "[SYSTEM]No chat history available\n";
                             write(fd, msg.c_str(), msg.size());
                         } else {
                             write(fd, history.c_str(), history.size());
@@ -394,7 +373,7 @@ int main() {
                     }
 
                     else {
-                        string err = "Invalid command\n";
+                        string err = "[SYSTEM]Invalid command\n";
                         write(fd, err.c_str(), err.size());
                     }
 
@@ -405,9 +384,9 @@ int main() {
                 string out = usernames[fd] + ": " + message + "\n";
                 if (chats.find(selected_chat[fd]) != chats.end()){
                     chatText.storeChat(selected_chat[fd], out);
-                    broadcast(chats[selected_chat[fd]], out, fd);
+                    broadcast(chats[selected_chat[fd]], out);
                 } else {
-                    string err = "Chat no longer exists\n";
+                    string err = "[SYSTEM]Chat no longer exists\n";
                     write(fd, err.c_str(), err.size());
                 }
             }

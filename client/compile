@@ -1,0 +1,3 @@
+#!/bin/bash
+
+g++ client.cpp -lncurses -o client
