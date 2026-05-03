@@ -15,7 +15,7 @@ The Chat server features include:
 
 
 
-To run the server, download the files and give the run and compile command execute permissions using chmod.
+To run the server, download the files and give the "run" and "compile" files execute permissions using chmod.
 
 Then use the commands "compile" and "run" to run the main server code.
 
