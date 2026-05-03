@@ -33,5 +33,9 @@ You will be asked for a username and password. These are stored and if you enter
 
 
 
+You can open multiple terminals and run the client code multiple times to see the chat room work with multiple users.
+
+
+
 Use the /help command for a list of possible commands.
 
